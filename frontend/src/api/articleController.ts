@@ -127,3 +127,65 @@ export async function getProgress(
     ...(options || {}),
   })
 }
+
+/** 保存到微信公众号草稿箱 POST /article/wechat/draft/${param0} */
+export async function createWechatDraft(
+  params: API.wechatTaskParams,
+  body: API.WechatPublishRequest,
+  options?: { [key: string]: any }
+) {
+  const { taskId: param0, ...queryParams } = params
+  return request<API.BaseResponseWechatPublishVO>(`/article/wechat/draft/${param0}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    params: { ...queryParams },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 提交发布到微信公众号 POST /article/wechat/publish/${param0} */
+export async function publishWechatArticle(
+  params: API.wechatTaskParams,
+  body: API.WechatPublishRequest,
+  options?: { [key: string]: any }
+) {
+  const { taskId: param0, ...queryParams } = params
+  return request<API.BaseResponseWechatPublishVO>(`/article/wechat/publish/${param0}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    params: { ...queryParams },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 查询微信公众号发布记录 GET /article/wechat/status/${param0} */
+export async function getWechatPublishStatus(
+  params: API.wechatTaskParams,
+  options?: { [key: string]: any }
+) {
+  const { taskId: param0, ...queryParams } = params
+  return request<API.BaseResponseWechatPublishVO>(`/article/wechat/status/${param0}`, {
+    method: 'GET',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
+/** 查询微信官方发布状态 GET /article/wechat/official-status/${param0} */
+export async function getWechatOfficialStatus(
+  params: API.wechatOfficialStatusParams,
+  options?: { [key: string]: any }
+) {
+  const { publishId: param0, ...queryParams } = params
+  return request<API.BaseResponseWechatPublishVO>(`/article/wechat/official-status/${param0}`, {
+    method: 'GET',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}

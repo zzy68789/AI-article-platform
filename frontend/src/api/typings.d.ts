@@ -156,6 +156,12 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponseWechatPublishVO = {
+    code?: number
+    data?: WechatPublishVO
+    message?: string
+  }
+
   type BaseResponseVoid = {
     code?: number
     data?: Record<string, any>
@@ -184,6 +190,14 @@ declare namespace API {
 
   type getUserVOByIdParams = {
     id: number
+  }
+
+  type wechatOfficialStatusParams = {
+    publishId: string
+  }
+
+  type wechatTaskParams = {
+    taskId: string
   }
 
   type ImageItem = {
@@ -343,5 +357,26 @@ declare namespace API {
     userProfile?: string
     userRole?: string
     createTime?: string
+  }
+
+  type WechatPublishRequest = {
+    force?: boolean
+    coverImageUrl?: string
+  }
+
+  type WechatPublishVO = {
+    recordId?: number
+    taskId?: string
+    mode?: string
+    status?: string
+    mediaId?: string
+    publishId?: string
+    articleIdFromWechat?: string
+    articleUrl?: string
+    officialStatusCode?: string
+    officialResponse?: string
+    errorMessage?: string
+    createTime?: string
+    updateTime?: string
   }
 }

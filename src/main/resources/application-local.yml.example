@@ -69,3 +69,12 @@ tencent:
     secret-key: your-secret-key
     region: ap-guangzhou
     bucket: your-bucket
+
+# 微信公众号发布配置
+wechat:
+  app-id: ${WECHAT_APP_ID:}
+  app-secret: ${WECHAT_APP_SECRET:}
+  default-author: ${WECHAT_DEFAULT_AUTHOR:}
+  base-url: ${WECHAT_BASE_URL:https://api.weixin.qq.com/cgi-bin}
+  connect-timeout-ms: ${WECHAT_CONNECT_TIMEOUT_MS:10000}
+  read-timeout-ms: ${WECHAT_READ_TIMEOUT_MS:30000}
