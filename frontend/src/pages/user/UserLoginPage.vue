@@ -1,0 +1,371 @@
+<template>
+  <div id="userLoginPage">
+    <div class="auth-container">
+      <!-- 左侧品牌区域 -->
+      <div class="brand-section">
+        <div class="brand-bg"></div>
+        <div class="brand-content">
+          <div class="brand-logo">
+            <img src="@/assets/logo.png" alt="Logo" class="logo-img" />
+          </div>
+          <h1 class="brand-title">AI公众号文章创作平台</h1>
+          <p class="brand-subtitle">把公众号选题整理成可发布的完整文章</p>
+          <div class="brand-features">
+            <div class="feature-item">
+              <CheckCircleOutlined class="feature-check" />
+              <span>智能生成标题与大纲</span>
+            </div>
+            <div class="feature-item">
+              <CheckCircleOutlined class="feature-check" />
+              <span>流式生成高质量正文</span>
+            </div>
+            <div class="feature-item">
+              <CheckCircleOutlined class="feature-check" />
+              <span>自动配图一键导出</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 右侧表单区域 -->
+      <div class="form-section">
+        <div class="form-card">
+          <h2 class="form-title">欢迎回来</h2>
+          <p class="form-subtitle">登录您的账号继续创作</p>
+          
+          <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit" class="login-form">
+            <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
+              <a-input 
+                v-model:value="formState.userAccount" 
+                placeholder="请输入账号" 
+                size="large"
+                class="form-input"
+              >
+                <template #prefix>
+                  <UserOutlined class="input-icon" />
+                </template>
+              </a-input>
+            </a-form-item>
+            <a-form-item
+              name="userPassword"
+              :rules="[
+                { required: true, message: '请输入密码' },
+                { min: 8, message: '密码长度不能小于 8 位' },
+              ]"
+            >
+              <a-input-password 
+                v-model:value="formState.userPassword" 
+                placeholder="请输入密码" 
+                size="large"
+                class="form-input"
+              >
+                <template #prefix>
+                  <LockOutlined class="input-icon" />
+                </template>
+              </a-input-password>
+            </a-form-item>
+            
+            <a-form-item>
+              <a-button type="primary" html-type="submit" size="large" block class="submit-btn">
+                登录
+              </a-button>
+            </a-form-item>
+          </a-form>
+          
+          <div class="form-footer">
+            <span class="footer-text">还没有账号？</span>
+            <RouterLink to="/user/register" class="register-link">立即注册</RouterLink>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import { reactive } from 'vue'
+import { userLogin } from '@/api/userController.ts'
+import { useLoginUserStore } from '@/stores/loginUser.ts'
+import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
+import { UserOutlined, LockOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
+
+const formState = reactive<API.UserLoginRequest>({
+  userAccount: '',
+  userPassword: '',
+})
+
+const router = useRouter()
+const loginUserStore = useLoginUserStore()
+
+/**
+ * 提交表单
+ * @param values
+ */
+const handleSubmit = async (values: any) => {
+  const res = await userLogin(values)
+  // 登录成功，把登录态保存到全局状态中
+  if (res.data.code === 0 && res.data.data) {
+    await loginUserStore.fetchLoginUser()
+    message.success('登录成功')
+    router.push({
+      path: '/',
+      replace: true,
+    })
+  } else {
+    message.error('登录失败，' + res.data.message)
+  }
+}
+</script>
+
+<style scoped>
+#userLoginPage {
+  min-height: calc(100vh - 64px);
+  background: var(--color-background);
+  background-image: var(--paper-texture);
+  background-size: 18px 18px, 100% 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.auth-container {
+  display: flex;
+  width: 100%;
+  max-width: 900px;
+  min-height: 520px;
+  background: var(--color-surface);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-border);
+}
+
+/* 左侧品牌区域 */
+.brand-section {
+  flex: 1;
+  padding: 48px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.brand-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    linear-gradient(135deg, rgba(17, 24, 39, 0.92), rgba(31, 41, 55, 0.96)),
+    var(--paper-texture);
+}
+
+.brand-bg::before {
+  content: '';
+  position: absolute;
+  inset: 32px;
+  border: 1px solid rgba(255, 253, 247, 0.18);
+  background:
+    linear-gradient(90deg, rgba(255, 253, 247, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 253, 247, 0.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  opacity: 0.7;
+}
+
+.brand-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: var(--color-surface);
+}
+
+.brand-logo {
+  margin-bottom: 24px;
+}
+
+.logo-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: 8px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.2);
+}
+
+.brand-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  letter-spacing: 0;
+}
+
+.brand-subtitle {
+  font-size: 15px;
+  color: rgba(255, 253, 247, 0.76);
+  margin: 0 0 36px;
+}
+
+.brand-features {
+  text-align: left;
+  background: rgba(255, 253, 247, 0.08);
+  border: 1px solid rgba(255, 253, 247, 0.16);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  backdrop-filter: blur(8px);
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
+.feature-item:last-child {
+  margin-bottom: 0;
+}
+
+.feature-check {
+  font-size: 18px;
+  color: #FBBF24;
+}
+
+/* 右侧表单区域 */
+.form-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  background: var(--color-surface);
+}
+
+.form-card {
+  width: 100%;
+  max-width: 320px;
+}
+
+.form-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 6px;
+  letter-spacing: 0;
+}
+
+.form-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0 0 32px;
+}
+
+.login-form {
+  margin-bottom: 24px;
+}
+
+.form-input {
+  border-radius: var(--radius-lg);
+  border-color: var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.form-input:hover {
+  border-color: var(--color-primary-light);
+}
+
+.form-input:focus,
+.form-input:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.form-input :deep(.ant-input) {
+  padding: 12px 14px;
+}
+
+.input-icon {
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
+.submit-btn {
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: var(--radius-lg);
+  background: var(--gradient-primary) !important;
+  border: none !important;
+  color: white !important;
+  box-shadow: var(--shadow-green) !important;
+  transition: opacity var(--transition-normal) !important;
+}
+
+.submit-btn:hover,
+.submit-btn:focus,
+.submit-btn:active {
+  background: var(--gradient-primary) !important;
+  border: none !important;
+  color: white !important;
+  box-shadow: var(--shadow-green) !important;
+  opacity: 0.92;
+}
+
+.submit-btn :deep(.ant-wave) {
+  display: none;
+}
+
+.form-footer {
+  text-align: center;
+}
+
+.footer-text {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.register-link {
+  color: var(--color-primary);
+  font-weight: 600;
+  margin-left: 4px;
+  transition: color var(--transition-fast);
+}
+
+.register-link:hover {
+  color: var(--color-primary-dark);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .auth-container {
+    flex-direction: column;
+    min-height: auto;
+    border-radius: var(--radius-xl);
+  }
+  
+  .brand-section {
+    padding: 32px 24px;
+  }
+  
+  .brand-title {
+    font-size: 22px;
+  }
+  
+  .brand-features {
+    display: none;
+  }
+  
+  .form-section {
+    padding: 32px 24px;
+  }
+
+  .form-title {
+    font-size: 22px;
+  }
+}
+</style>

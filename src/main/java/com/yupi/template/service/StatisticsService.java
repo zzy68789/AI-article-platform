@@ -1,0 +1,18 @@
+package com.yupi.template.service;
+
+import com.yupi.template.model.vo.StatisticsVO;
+
+/**
+ * 统计服务
+ *
+ * @author zzy
+ */
+public interface StatisticsService {
+
+    /**
+     * 获取系统统计数据
+     *
+     * @return 统计数据
+     */
+    StatisticsVO getStatistics();
+}
