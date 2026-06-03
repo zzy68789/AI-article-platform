@@ -94,8 +94,8 @@ article:
 
 # 微信公众号发布配置
 wechat:
-  app-id: ${WECHAT_APP_ID}
-  app-secret: ${WECHAT_APP_SECRET}
+  app-id: ${WECHAT_APP_ID:}
+  app-secret: ${WECHAT_APP_SECRET:}
   default-author: ${WECHAT_DEFAULT_AUTHOR:zzyzyz}
   base-url: ${WECHAT_BASE_URL:https://api.weixin.qq.com/cgi-bin}
   connect-timeout-ms: ${WECHAT_CONNECT_TIMEOUT_MS:10000}
