@@ -52,6 +52,11 @@ const router = createRouter({
       name: '会员购买',
       component: () => import('@/pages/VipPage.vue'),
     },
+    {
+      path: '/wechat/accounts',
+      name: '公众号授权',
+      component: () => import('@/pages/wechat/WechatAccountPage.vue'),
+    },
   ],
 })
 

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -55,9 +56,10 @@ public class WechatPublishController {
     @Operation(summary = "查询微信公众号发布记录")
     public BaseResponse<WechatPublishVO> getStatus(
             @PathVariable String taskId,
+            @RequestParam(required = false) Long wechatAccountId,
             HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
-        return ResultUtils.success(wechatPublishService.getLatestStatus(taskId, loginUser));
+        return ResultUtils.success(wechatPublishService.getLatestStatus(taskId, wechatAccountId, loginUser));
     }
 
     @GetMapping("/official-status/{publishId}")

@@ -177,6 +177,48 @@ export async function getWechatPublishStatus(
   })
 }
 
+/** 生成微信公众号授权链接 GET /wechat/open-platform/auth-url */
+export async function getWechatAuthorizationUrl(options?: { [key: string]: any }) {
+  return request<API.BaseResponseWechatAuthorizationUrlVO>('/wechat/open-platform/auth-url', {
+    method: 'GET',
+    ...(options || {}),
+  })
+}
+
+/** 查询当前用户授权的公众号 GET /wechat/accounts */
+export async function listWechatAccounts(options?: { [key: string]: any }) {
+  return request<API.BaseResponseListWechatAuthorizerAccountVO>('/wechat/accounts', {
+    method: 'GET',
+    ...(options || {}),
+  })
+}
+
+/** 设置默认公众号 POST /wechat/accounts/${param0}/default */
+export async function setDefaultWechatAccount(
+  params: API.wechatAccountParams,
+  options?: { [key: string]: any }
+) {
+  const { accountId: param0, ...queryParams } = params
+  return request<API.BaseResponseBoolean>(`/wechat/accounts/${param0}/default`, {
+    method: 'POST',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
+/** 解除公众号绑定 DELETE /wechat/accounts/${param0} */
+export async function unbindWechatAccount(
+  params: API.wechatAccountParams,
+  options?: { [key: string]: any }
+) {
+  const { accountId: param0, ...queryParams } = params
+  return request<API.BaseResponseBoolean>(`/wechat/accounts/${param0}`, {
+    method: 'DELETE',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
 /** 查询微信官方发布状态 GET /article/wechat/official-status/${param0} */
 export async function getWechatOfficialStatus(
   params: API.wechatOfficialStatusParams,

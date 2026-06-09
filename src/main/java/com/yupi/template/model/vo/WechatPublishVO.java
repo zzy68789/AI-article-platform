@@ -14,6 +14,10 @@ public class WechatPublishVO implements Serializable {
 
     private String taskId;
 
+    private Long wechatAccountId;
+
+    private String authorizerAppid;
+
     private String mode;
 
     private String status;

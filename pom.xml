@@ -154,6 +154,12 @@
             <artifactId>flexmark-all</artifactId>
             <version>0.64.8</version>
         </dependency>
+        <!-- 微信开放平台第三方平台授权 -->
+        <dependency>
+            <groupId>com.github.binarywang</groupId>
+            <artifactId>weixin-java-open</artifactId>
+            <version>4.8.0</version>
+        </dependency>
         <!-- Jakarta Annotation API (替代 javax.annotation) -->
         <dependency>
             <groupId>jakarta.annotation</groupId>

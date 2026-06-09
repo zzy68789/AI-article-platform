@@ -11,5 +11,7 @@ public class WechatPublishRequest implements Serializable {
 
     private String coverImageUrl;
 
+    private Long wechatAccountId;
+
     private static final long serialVersionUID = 1L;
 }

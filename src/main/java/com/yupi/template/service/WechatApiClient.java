@@ -80,9 +80,13 @@ public class WechatApiClient {
     }
 
     public String uploadCoverImage(String imageUrl) {
+        return uploadCoverImage(getAccessToken(), imageUrl);
+    }
+
+    public String uploadCoverImage(String accessToken, String imageUrl) {
         ImageBytes imageBytes = downloadImage(imageUrl);
         String url = wechatConfig.getBaseUrl() + "/material/add_material?access_token="
-                + encode(getAccessToken()) + "&type=image";
+                + encode(accessToken) + "&type=image";
         JsonObject json = uploadImageMultipart(url, imageBytes);
         ensureWechatSuccess(json, "上传微信封面图失败");
         if (!json.has("media_id")) {
@@ -92,8 +96,12 @@ public class WechatApiClient {
     }
 
     public String uploadContentImage(String imageUrl) {
+        return uploadContentImage(getAccessToken(), imageUrl);
+    }
+
+    public String uploadContentImage(String accessToken, String imageUrl) {
         ImageBytes imageBytes = downloadImage(imageUrl);
-        String url = wechatConfig.getBaseUrl() + "/media/uploadimg?access_token=" + encode(getAccessToken());
+        String url = wechatConfig.getBaseUrl() + "/media/uploadimg?access_token=" + encode(accessToken);
         JsonObject json = uploadImageMultipart(url, imageBytes);
         ensureWechatSuccess(json, "上传微信正文图片失败");
         if (!json.has("url")) {
@@ -103,6 +111,16 @@ public class WechatApiClient {
     }
 
     public String addDraft(String title, String author, String digest, String contentHtml, String thumbMediaId) {
+        return addDraft(getAccessToken(), title, author, digest, contentHtml, thumbMediaId);
+    }
+
+    public String addDraft(
+            String accessToken,
+            String title,
+            String author,
+            String digest,
+            String contentHtml,
+            String thumbMediaId) {
         JsonObject article = new JsonObject();
         article.addProperty("title", title);
         if (StrUtil.isNotBlank(author)) {
@@ -121,7 +139,7 @@ public class WechatApiClient {
         JsonObject body = new JsonObject();
         body.add("articles", articles);
 
-        String url = wechatConfig.getBaseUrl() + "/draft/add?access_token=" + encode(getAccessToken());
+        String url = wechatConfig.getBaseUrl() + "/draft/add?access_token=" + encode(accessToken);
         JsonObject json = postJson(url, body);
         ensureWechatSuccess(json, "创建微信公众号草稿失败");
         if (!json.has("media_id")) {
@@ -131,10 +149,14 @@ public class WechatApiClient {
     }
 
     public String submitPublish(String mediaId) {
+        return submitPublish(getAccessToken(), mediaId);
+    }
+
+    public String submitPublish(String accessToken, String mediaId) {
         JsonObject body = new JsonObject();
         body.addProperty("media_id", mediaId);
 
-        String url = wechatConfig.getBaseUrl() + "/freepublish/submit?access_token=" + encode(getAccessToken());
+        String url = wechatConfig.getBaseUrl() + "/freepublish/submit?access_token=" + encode(accessToken);
         JsonObject json = postJson(url, body);
         ensureWechatSuccess(json, "提交微信公众号发布失败");
         if (!json.has("publish_id")) {
@@ -144,10 +166,14 @@ public class WechatApiClient {
     }
 
     public JsonObject getPublishStatus(String publishId) {
+        return getPublishStatus(getAccessToken(), publishId);
+    }
+
+    public JsonObject getPublishStatus(String accessToken, String publishId) {
         JsonObject body = new JsonObject();
         body.addProperty("publish_id", publishId);
 
-        String url = wechatConfig.getBaseUrl() + "/freepublish/get?access_token=" + encode(getAccessToken());
+        String url = wechatConfig.getBaseUrl() + "/freepublish/get?access_token=" + encode(accessToken);
         JsonObject json = postJson(url, body);
         ensureWechatSuccess(json, "查询微信公众号发布状态失败");
         return json;

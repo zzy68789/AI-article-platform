@@ -30,23 +30,29 @@ public class WechatMarkdownRenderService {
     }
 
     public String renderForWechat(String markdown) {
+        return renderForWechat(markdown, null);
+    }
+
+    public String renderForWechat(String markdown, String accessToken) {
         if (StrUtil.isBlank(markdown)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "文章内容不能为空");
         }
         String rawHtml = renderer.render(parser.parse(markdown));
         Document doc = Jsoup.parseBodyFragment(rawHtml);
-        replaceImages(doc);
+        replaceImages(doc, accessToken);
         applyWechatStyles(doc);
         return cleanHtml(doc.body().html());
     }
 
-    private void replaceImages(Document doc) {
+    private void replaceImages(Document doc, String accessToken) {
         for (Element img : doc.select("img")) {
             String src = img.attr("src");
             if (StrUtil.isBlank(src)) {
                 continue;
             }
-            String wechatUrl = wechatApiClient.uploadContentImage(src);
+            String wechatUrl = StrUtil.isBlank(accessToken)
+                    ? wechatApiClient.uploadContentImage(src)
+                    : wechatApiClient.uploadContentImage(accessToken, src);
             img.attr("src", wechatUrl);
         }
     }

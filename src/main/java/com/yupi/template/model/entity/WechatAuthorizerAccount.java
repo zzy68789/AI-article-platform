@@ -17,8 +17,8 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(value = "wechat_publish_record", camelToUnderline = false)
-public class WechatPublishRecord implements Serializable {
+@Table(value = "wechat_authorizer_account", camelToUnderline = false)
+public class WechatAuthorizerAccount implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -26,37 +26,31 @@ public class WechatPublishRecord implements Serializable {
     @Id(keyType = KeyType.Auto)
     private Long id;
 
-    private Long articleId;
-
-    private String taskId;
-
-    private Long userId;
-
-    private Long wechatAccountId;
+    private Long ownerUserId;
 
     private String authorizerAppid;
 
-    private String mediaId;
+    private String nickName;
 
-    private String publishId;
+    private String headImg;
 
-    private String articleIdFromWechat;
+    private String principalName;
 
-    private String articleUrl;
+    private Integer serviceTypeInfo;
 
-    private String status;
+    private Integer verifyTypeInfo;
 
-    private String mode;
+    private String funcInfo;
 
-    private String articleTitle;
+    private String authorizerRefreshTokenEncrypted;
 
-    private String officialStatusCode;
+    private String authorizerAccessTokenEncrypted;
 
-    private String officialResponse;
+    private LocalDateTime accessTokenExpireTime;
 
-    private String errorMessage;
+    private String authStatus;
 
-    private Integer attemptNo;
+    private Integer isDefault;
 
     private LocalDateTime createTime;
 

@@ -268,6 +268,12 @@ docker compose down -v
 | WECHAT_APP_ID | 启用发布时必需 | - | 微信公众号 AppID |
 | WECHAT_APP_SECRET | 启用发布时必需 | - | 微信公众号 AppSecret |
 | WECHAT_DEFAULT_AUTHOR | - | - | 发布到公众号时的默认作者 |
+| WECHAT_OPEN_PLATFORM_ENABLED | - | false | 是否启用第三方平台公众号授权 |
+| WECHAT_COMPONENT_APP_ID | 启用第三方授权时必需 | - | 微信开放平台第三方平台 AppID |
+| WECHAT_COMPONENT_APP_SECRET | 启用第三方授权时必需 | - | 微信开放平台第三方平台 AppSecret |
+| WECHAT_COMPONENT_TOKEN | 启用第三方授权时必需 | - | 第三方平台消息校验 Token |
+| WECHAT_COMPONENT_AES_KEY | 启用第三方授权时必需 | - | 第三方平台消息加解密 Key |
+| WECHAT_CREDENTIAL_ENCRYPTION_KEY | 启用第三方授权时必需 | - | 用于加密授权公众号 refresh token 的 Base64 AES 密钥 |
 
 详见 `.env.example` 文件获取完整配置说明。
 
