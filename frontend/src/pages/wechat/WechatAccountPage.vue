@@ -105,7 +105,7 @@ const handleAuthorize = async () => {
     if (res.data.code === 0 && authorizationUrl) {
       window.location.href = authorizationUrl
     } else {
-      message.error(res.data.message || '生成授权链接失败')
+      message.error(res.data.message || '生成授权链接失败', 1)
     }
   } finally {
     authorizing.value = false
