@@ -50,3 +50,21 @@ tencent:
     secret-key: ${TENCENT_COS_SECRET_KEY:}
     region: ${TENCENT_COS_REGION:ap-guangzhou}
     bucket: ${TENCENT_COS_BUCKET:}
+
+# 微信公众号发布配置
+wechat:
+  app-id: ${WECHAT_APP_ID:}
+  app-secret: ${WECHAT_APP_SECRET:}
+  default-author: ${WECHAT_DEFAULT_AUTHOR:}
+  base-url: ${WECHAT_BASE_URL:https://api.weixin.qq.com/cgi-bin}
+  connect-timeout-ms: ${WECHAT_CONNECT_TIMEOUT_MS:10000}
+  read-timeout-ms: ${WECHAT_READ_TIMEOUT_MS:30000}
+  open-platform:
+    enabled: ${WECHAT_OPEN_PLATFORM_ENABLED:false}
+    component-app-id: ${WECHAT_COMPONENT_APP_ID:}
+    component-app-secret: ${WECHAT_COMPONENT_APP_SECRET:}
+    component-token: ${WECHAT_COMPONENT_TOKEN:}
+    component-aes-key: ${WECHAT_COMPONENT_AES_KEY:}
+    authorization-redirect-uri: ${WECHAT_AUTHORIZATION_REDIRECT_URI:}
+    frontend-success-url: ${WECHAT_FRONTEND_SUCCESS_URL:}
+    credential-encryption-key: ${WECHAT_CREDENTIAL_ENCRYPTION_KEY:}

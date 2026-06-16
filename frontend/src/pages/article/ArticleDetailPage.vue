@@ -22,6 +22,51 @@
               </template>
               重新创建
             </a-button>
+            <a-select
+              v-if="isWechatPublishable && authorizedWechatAccounts.length > 0"
+              v-model:value="selectedWechatAccountId"
+              class="wechat-account-select"
+              placeholder="选择公众号"
+              @change="handleWechatAccountChange"
+            >
+              <a-select-option
+                v-for="account in authorizedWechatAccounts"
+                :key="account.id"
+                :value="account.id"
+              >
+                {{ account.nickName || account.authorizerAppid }}
+              </a-select-option>
+            </a-select>
+            <a-button
+              v-if="isWechatPublishable && authorizedWechatAccounts.length === 0"
+              @click="router.push('/wechat/accounts')"
+            >
+              <template #icon>
+                <LinkOutlined />
+              </template>
+              授权公众号
+            </a-button>
+            <a-button
+              v-if="canPublishWechat"
+              :loading="wechatLoading"
+              @click="handleSaveWechatDraft"
+            >
+              <template #icon>
+                <CloudUploadOutlined />
+              </template>
+              保存到公众号草稿箱
+            </a-button>
+            <a-button
+              v-if="canPublishWechat"
+              type="primary"
+              :loading="wechatLoading"
+              @click="handlePublishWechat"
+            >
+              <template #icon>
+                <SendOutlined />
+              </template>
+              发布到公众号
+            </a-button>
             <a-button type="primary" @click="exportMarkdown" class="export-btn">
               <template #icon>
                 <DownloadOutlined />
@@ -45,6 +90,51 @@
                 {{ getStatusText(article.status ?? '') }}
               </a-tag>
               <span class="time">创建于 {{ article.createTime ? formatDate(article.createTime) : '' }}</span>
+            </div>
+          </div>
+
+          <div v-if="wechatRecord" class="wechat-status-section">
+            <div class="wechat-status-header">
+              <div>
+                <span class="wechat-title">微信公众号发布</span>
+                <a-tag :color="getWechatStatusColor(wechatRecord.status)">
+                  {{ getWechatStatusText(wechatRecord.status) }}
+                </a-tag>
+                <span v-if="selectedWechatAccount" class="wechat-account-name">
+                  {{ selectedWechatAccount.nickName || selectedWechatAccount.authorizerAppid }}
+                </span>
+              </div>
+              <a-button
+                v-if="wechatRecord.publishId"
+                size="small"
+                :loading="wechatStatusLoading"
+                @click="handleRefreshWechatOfficialStatus"
+              >
+                <template #icon>
+                  <SyncOutlined />
+                </template>
+                查询官方状态
+              </a-button>
+            </div>
+            <div class="wechat-status-grid">
+              <div v-if="wechatRecord.mediaId" class="wechat-status-item">
+                <span class="label">mediaId</span>
+                <span class="value">{{ wechatRecord.mediaId }}</span>
+              </div>
+              <div v-if="wechatRecord.publishId" class="wechat-status-item">
+                <span class="label">publishId</span>
+                <span class="value">{{ wechatRecord.publishId }}</span>
+              </div>
+              <div v-if="wechatRecord.articleUrl" class="wechat-status-item">
+                <span class="label">文章链接</span>
+                <a :href="wechatRecord.articleUrl" target="_blank" rel="noopener noreferrer">
+                  {{ wechatRecord.articleUrl }}
+                </a>
+              </div>
+              <div v-if="wechatRecord.errorMessage" class="wechat-status-item error">
+                <span class="label">失败原因</span>
+                <span class="value">{{ wechatRecord.errorMessage }}</span>
+              </div>
             </div>
           </div>
 
@@ -174,7 +264,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import {
@@ -188,9 +278,21 @@ import {
   CloseCircleOutlined,
   LoadingOutlined,
   RedoOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  CloudUploadOutlined,
+  SendOutlined,
+  SyncOutlined,
+  LinkOutlined
 } from '@ant-design/icons-vue'
-import { getArticle, getExecutionLogs } from '@/api/articleController'
+import {
+  getArticle,
+  getExecutionLogs,
+  createWechatDraft,
+  publishWechatArticle,
+  getWechatPublishStatus,
+  getWechatOfficialStatus,
+  listWechatAccounts
+} from '@/api/articleController'
 import { marked } from 'marked'
 import dayjs from 'dayjs'
 
@@ -200,9 +302,30 @@ const route = useRoute()
 const loading = ref(false)
 const article = ref<API.ArticleVO | null>(null)
 const executionStats = ref<API.AgentExecutionStats | null>(null)
+const wechatRecord = ref<API.WechatPublishVO | null>(null)
+const wechatAccounts = ref<API.WechatAuthorizerAccountVO[]>([])
+const selectedWechatAccountId = ref<number>()
 const logsLoading = ref(false)
 const showExecutionLogs = ref(false)
+const wechatLoading = ref(false)
+const wechatStatusLoading = ref(false)
 let refreshTimer: number | null = null
+
+const isWechatPublishable = computed(() => {
+  return article.value?.status === 'COMPLETED' && !!(article.value?.fullContent || article.value?.content)
+})
+
+const authorizedWechatAccounts = computed(() => {
+  return wechatAccounts.value.filter(account => account.authStatus === 'AUTHORIZED')
+})
+
+const selectedWechatAccount = computed(() => {
+  return wechatAccounts.value.find(account => account.id === selectedWechatAccountId.value)
+})
+
+const canPublishWechat = computed(() => {
+  return isWechatPublishable.value && !!selectedWechatAccountId.value
+})
 
 // Markdown 转 HTML
 const markdownToHtml = (markdown: string) => {
@@ -223,6 +346,10 @@ const loadArticle = async (silent = false) => {
   try {
     const res = await getArticle({ taskId })
     article.value = res.data.data || null
+    if (article.value?.taskId) {
+      await loadWechatAccounts()
+      await loadWechatStatus(article.value.taskId)
+    }
     // 自动加载执行日志
     await loadExecutionLogs(taskId)
     updateAutoRefresh()
@@ -264,6 +391,131 @@ const loadExecutionLogs = async (taskId: string) => {
   } finally {
     logsLoading.value = false
   }
+}
+
+const loadWechatStatus = async (taskId: string) => {
+  if (!selectedWechatAccountId.value) {
+    wechatRecord.value = null
+    return
+  }
+  try {
+    const res = await getWechatPublishStatus({
+      taskId,
+      wechatAccountId: selectedWechatAccountId.value,
+    })
+    if (res.data.code === 0) {
+      wechatRecord.value = res.data.data || null
+    }
+  } catch (error) {
+    console.error('加载微信公众号发布状态失败:', error)
+  }
+}
+
+const loadWechatAccounts = async () => {
+  try {
+    const res = await listWechatAccounts()
+    if (res.data.code === 0) {
+      wechatAccounts.value = res.data.data || []
+      const currentStillAvailable = authorizedWechatAccounts.value.some(
+        account => account.id === selectedWechatAccountId.value
+      )
+      if (!currentStillAvailable) {
+        const defaultAccount = authorizedWechatAccounts.value.find(account => account.isDefault === 1)
+        selectedWechatAccountId.value = defaultAccount?.id || authorizedWechatAccounts.value[0]?.id
+      }
+    }
+  } catch (error) {
+    console.error('加载授权公众号失败:', error)
+  }
+}
+
+const handleWechatAccountChange = async () => {
+  wechatRecord.value = null
+  if (article.value?.taskId) {
+    await loadWechatStatus(article.value.taskId)
+  }
+}
+
+const handleSaveWechatDraft = async () => {
+  if (!article.value?.taskId || !selectedWechatAccountId.value) return
+  wechatLoading.value = true
+  try {
+    const res = await createWechatDraft(
+      { taskId: article.value.taskId },
+      { force: false, wechatAccountId: selectedWechatAccountId.value }
+    )
+    if (res.data.code === 0) {
+      wechatRecord.value = res.data.data || null
+      message.success('已保存到微信公众号草稿箱')
+    } else {
+      message.error(res.data.message || '保存草稿失败')
+    }
+  } catch (error) {
+    message.error((error as Error).message || '保存草稿失败')
+  } finally {
+    wechatLoading.value = false
+  }
+}
+
+const handlePublishWechat = async () => {
+  if (!article.value?.taskId || !selectedWechatAccountId.value) return
+  wechatLoading.value = true
+  try {
+    const res = await publishWechatArticle(
+      { taskId: article.value.taskId },
+      { force: false, wechatAccountId: selectedWechatAccountId.value }
+    )
+    if (res.data.code === 0) {
+      wechatRecord.value = res.data.data || null
+      message.success('已提交微信公众号发布')
+    } else {
+      message.error(res.data.message || '提交发布失败')
+    }
+  } catch (error) {
+    message.error((error as Error).message || '提交发布失败')
+  } finally {
+    wechatLoading.value = false
+  }
+}
+
+const handleRefreshWechatOfficialStatus = async () => {
+  if (!wechatRecord.value?.publishId) return
+  wechatStatusLoading.value = true
+  try {
+    const res = await getWechatOfficialStatus({ publishId: wechatRecord.value.publishId })
+    if (res.data.code === 0) {
+      wechatRecord.value = res.data.data || null
+      message.success('微信官方状态已刷新')
+    } else {
+      message.error(res.data.message || '查询官方状态失败')
+    }
+  } catch (error) {
+    message.error((error as Error).message || '查询官方状态失败')
+  } finally {
+    wechatStatusLoading.value = false
+  }
+}
+
+const getWechatStatusColor = (status?: string) => {
+  const colorMap: Record<string, string> = {
+    DRAFT_CREATED: 'blue',
+    SUBMITTED: 'processing',
+    PUBLISHING: 'processing',
+    SUCCESS: 'success',
+    FAILED: 'error',
+  }
+  return colorMap[status || ''] || 'default'
+}
+
+const getWechatStatusText = (status?: string) => {
+  const textMap: Record<string, string> = {
+    DRAFT_CREATED: '草稿已创建',
+    SUBMITTED: '已提交发布',
+    PUBLISHING: '发布中',
+    SUCCESS: '发布成功',
+    FAILED: '发布失败',
+  }
+  return textMap[status || ''] || status || '未发布'
 }
 
 // 返回
@@ -408,7 +660,13 @@ onUnmounted(() => {
 
   .right-actions {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 12px;
+  }
+
+  .wechat-account-select {
+    width: 190px;
   }
 
   .back-btn {
@@ -506,6 +764,63 @@ onUnmounted(() => {
       border-radius: var(--radius-full);
       font-size: 12px;
       padding: 2px 12px;
+    }
+  }
+
+  .wechat-status-section {
+    margin: 20px auto 28px;
+    max-width: 760px;
+    padding: 16px;
+    background: var(--color-background-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+
+    .wechat-status-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .wechat-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-right: 8px;
+      color: var(--color-text);
+    }
+
+    .wechat-account-name {
+      margin-left: 8px;
+      color: var(--color-text-muted);
+      font-size: 12px;
+    }
+
+    .wechat-status-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .wechat-status-item {
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1fr);
+      gap: 10px;
+      font-size: 13px;
+
+      .label {
+        color: var(--color-text-muted);
+      }
+
+      .value,
+      a {
+        min-width: 0;
+        word-break: break-all;
+        color: var(--color-text);
+      }
+
+      &.error .value {
+        color: var(--color-error);
+      }
     }
   }
 
@@ -880,6 +1195,15 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .article-detail-page {
+    .header-actions {
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .wechat-account-select {
+      width: 100%;
+    }
+
     .article-card {
       :deep(.ant-card-body) {
         padding: 24px;

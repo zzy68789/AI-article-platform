@@ -127,3 +127,107 @@ export async function getProgress(
     ...(options || {}),
   })
 }
+
+/** 保存到微信公众号草稿箱 POST /article/wechat/draft/${param0} */
+export async function createWechatDraft(
+  params: API.wechatTaskParams,
+  body: API.WechatPublishRequest,
+  options?: { [key: string]: any }
+) {
+  const { taskId: param0, ...queryParams } = params
+  return request<API.BaseResponseWechatPublishVO>(`/article/wechat/draft/${param0}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    params: { ...queryParams },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 提交发布到微信公众号 POST /article/wechat/publish/${param0} */
+export async function publishWechatArticle(
+  params: API.wechatTaskParams,
+  body: API.WechatPublishRequest,
+  options?: { [key: string]: any }
+) {
+  const { taskId: param0, ...queryParams } = params
+  return request<API.BaseResponseWechatPublishVO>(`/article/wechat/publish/${param0}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    params: { ...queryParams },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 查询微信公众号发布记录 GET /article/wechat/status/${param0} */
+export async function getWechatPublishStatus(
+  params: API.wechatTaskParams,
+  options?: { [key: string]: any }
+) {
+  const { taskId: param0, ...queryParams } = params
+  return request<API.BaseResponseWechatPublishVO>(`/article/wechat/status/${param0}`, {
+    method: 'GET',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
+/** 生成微信公众号授权链接 GET /wechat/open-platform/auth-url */
+export async function getWechatAuthorizationUrl(options?: { [key: string]: any }) {
+  return request<API.BaseResponseWechatAuthorizationUrlVO>('/wechat/open-platform/auth-url', {
+    method: 'GET',
+    ...(options || {}),
+  })
+}
+
+/** 查询当前用户授权的公众号 GET /wechat/accounts */
+export async function listWechatAccounts(options?: { [key: string]: any }) {
+  return request<API.BaseResponseListWechatAuthorizerAccountVO>('/wechat/accounts', {
+    method: 'GET',
+    ...(options || {}),
+  })
+}
+
+/** 设置默认公众号 POST /wechat/accounts/${param0}/default */
+export async function setDefaultWechatAccount(
+  params: API.wechatAccountParams,
+  options?: { [key: string]: any }
+) {
+  const { accountId: param0, ...queryParams } = params
+  return request<API.BaseResponseBoolean>(`/wechat/accounts/${param0}/default`, {
+    method: 'POST',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
+/** 解除公众号绑定 DELETE /wechat/accounts/${param0} */
+export async function unbindWechatAccount(
+  params: API.wechatAccountParams,
+  options?: { [key: string]: any }
+) {
+  const { accountId: param0, ...queryParams } = params
+  return request<API.BaseResponseBoolean>(`/wechat/accounts/${param0}`, {
+    method: 'DELETE',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
+/** 查询微信官方发布状态 GET /article/wechat/official-status/${param0} */
+export async function getWechatOfficialStatus(
+  params: API.wechatOfficialStatusParams,
+  options?: { [key: string]: any }
+) {
+  const { publishId: param0, ...queryParams } = params
+  return request<API.BaseResponseWechatPublishVO>(`/article/wechat/official-status/${param0}`, {
+    method: 'GET',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}

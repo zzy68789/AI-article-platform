@@ -91,3 +91,21 @@ article:
       enabled: true
     # Agent 最大迭代次数
     max-iterations: 10
+
+# 微信公众号发布配置
+wechat:
+  app-id: ${WECHAT_APP_ID:}
+  app-secret: ${WECHAT_APP_SECRET:}
+  default-author: ${WECHAT_DEFAULT_AUTHOR:zzyzyz}
+  base-url: ${WECHAT_BASE_URL:https://api.weixin.qq.com/cgi-bin}
+  connect-timeout-ms: ${WECHAT_CONNECT_TIMEOUT_MS:10000}
+  read-timeout-ms: ${WECHAT_READ_TIMEOUT_MS:30000}
+  open-platform:
+    enabled: ${WECHAT_OPEN_PLATFORM_ENABLED:false}
+    component-app-id: ${WECHAT_COMPONENT_APP_ID:}
+    component-app-secret: ${WECHAT_COMPONENT_APP_SECRET:}
+    component-token: ${WECHAT_COMPONENT_TOKEN:}
+    component-aes-key: ${WECHAT_COMPONENT_AES_KEY:}
+    authorization-redirect-uri: ${WECHAT_AUTHORIZATION_REDIRECT_URI:}
+    frontend-success-url: ${WECHAT_FRONTEND_SUCCESS_URL:http://localhost:5173/wechat/accounts}
+    credential-encryption-key: ${WECHAT_CREDENTIAL_ENCRYPTION_KEY:}

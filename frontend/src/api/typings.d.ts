@@ -156,6 +156,24 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponseWechatPublishVO = {
+    code?: number
+    data?: WechatPublishVO
+    message?: string
+  }
+
+  type BaseResponseListWechatAuthorizerAccountVO = {
+    code?: number
+    data?: WechatAuthorizerAccountVO[]
+    message?: string
+  }
+
+  type BaseResponseWechatAuthorizationUrlVO = {
+    code?: number
+    data?: WechatAuthorizationUrlVO
+    message?: string
+  }
+
   type BaseResponseVoid = {
     code?: number
     data?: Record<string, any>
@@ -184,6 +202,19 @@ declare namespace API {
 
   type getUserVOByIdParams = {
     id: number
+  }
+
+  type wechatOfficialStatusParams = {
+    publishId: string
+  }
+
+  type wechatTaskParams = {
+    taskId: string
+    wechatAccountId?: number
+  }
+
+  type wechatAccountParams = {
+    accountId: number
   }
 
   type ImageItem = {
@@ -343,5 +374,46 @@ declare namespace API {
     userProfile?: string
     userRole?: string
     createTime?: string
+  }
+
+  type WechatPublishRequest = {
+    force?: boolean
+    coverImageUrl?: string
+    wechatAccountId?: number
+  }
+
+  type WechatPublishVO = {
+    recordId?: number
+    taskId?: string
+    wechatAccountId?: number
+    authorizerAppid?: string
+    mode?: string
+    status?: string
+    mediaId?: string
+    publishId?: string
+    articleIdFromWechat?: string
+    articleUrl?: string
+    officialStatusCode?: string
+    officialResponse?: string
+    errorMessage?: string
+    createTime?: string
+    updateTime?: string
+  }
+
+  type WechatAuthorizerAccountVO = {
+    id?: number
+    authorizerAppid?: string
+    nickName?: string
+    headImg?: string
+    principalName?: string
+    serviceTypeInfo?: number
+    verifyTypeInfo?: number
+    authStatus?: string
+    isDefault?: number
+    updateTime?: string
+  }
+
+  type WechatAuthorizationUrlVO = {
+    authorizationUrl?: string
   }
 }
