@@ -8,6 +8,8 @@ import com.yupi.template.exception.ErrorCode;
 import com.yupi.template.exception.ThrowUtils;
 import com.yupi.template.manager.SseEmitterManager;
 import com.yupi.template.model.dto.article.ArticleAiModifyOutlineRequest;
+import com.yupi.template.model.dto.article.ArticleContentRollbackRequest;
+import com.yupi.template.model.dto.article.ArticleContentUpdateRequest;
 import com.yupi.template.model.dto.article.ArticleConfirmOutlineRequest;
 import com.yupi.template.model.dto.article.ArticleConfirmTitleRequest;
 import com.yupi.template.model.dto.article.ArticleCreateRequest;
@@ -18,9 +20,11 @@ import java.util.List;
 import com.yupi.template.model.entity.User;
 import com.yupi.template.model.enums.ArticleStyleEnum;
 import com.yupi.template.model.vo.AgentExecutionStats;
+import com.yupi.template.model.vo.ArticleContentVersionVO;
 import com.yupi.template.model.vo.ArticleVO;
 import com.yupi.template.service.AgentLogService;
 import com.yupi.template.service.ArticleAsyncService;
+import com.yupi.template.service.ArticleContentVersionService;
 import com.yupi.template.service.ArticleService;
 import com.yupi.template.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,6 +46,9 @@ public class ArticleController {
 
     @Resource
     private ArticleService articleService;
+
+    @Resource
+    private ArticleContentVersionService articleContentVersionService;
 
     @Resource
     private ArticleAsyncService articleAsyncService;
@@ -121,6 +128,40 @@ public class ArticleController {
         ArticleVO articleVO = articleService.getArticleDetail(taskId, loginUser);
 
         return ResultUtils.success(articleVO);
+    }
+
+    @GetMapping("/versions/{taskId}")
+    @Operation(summary = "获取文章正文版本列表")
+    public BaseResponse<List<ArticleContentVersionVO>> listContentVersions(
+            @PathVariable String taskId,
+            HttpServletRequest httpServletRequest) {
+        ThrowUtils.throwIf(taskId == null || taskId.trim().isEmpty(),
+                ErrorCode.PARAMS_ERROR, "任务ID不能为空");
+
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        return ResultUtils.success(articleContentVersionService.listVersions(taskId, loginUser));
+    }
+
+    @PostMapping("/content/update")
+    @Operation(summary = "更新文章正文并创建版本")
+    public BaseResponse<ArticleContentVersionVO> updateContent(
+            @RequestBody ArticleContentUpdateRequest request,
+            HttpServletRequest httpServletRequest) {
+        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
+
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        return ResultUtils.success(articleContentVersionService.updateContent(request, loginUser));
+    }
+
+    @PostMapping("/content/rollback")
+    @Operation(summary = "回滚文章正文版本")
+    public BaseResponse<ArticleContentVersionVO> rollbackContent(
+            @RequestBody ArticleContentRollbackRequest request,
+            HttpServletRequest httpServletRequest) {
+        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
+
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        return ResultUtils.success(articleContentVersionService.rollbackContent(request, loginUser));
     }
 
     /**

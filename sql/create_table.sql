@@ -85,4 +85,29 @@ create table if not exists agent_log
     INDEX idx_agentName (agentName),
     INDEX idx_status (status),
     INDEX idx_createTime (createTime)
-) comment '智能体执行日志表' collate = utf8mb4_unicode_ci;
+    ) comment '智能体执行日志表' collate = utf8mb4_unicode_ci;
+
+-- 文章版本回滚表
+create table if not exists article_content_version
+(
+    id                    bigint auto_increment primary key,
+    articleId             bigint                             not null comment '文章ID',
+    taskId                varchar(64)                        not null comment '任务ID',
+    userId                bigint                             not null comment '用户ID',
+    versionNo             int                                not null comment '版本号',
+    title                 varchar(256)                       null comment '标题',
+    subTitle              varchar(512)                       null comment '副标题',
+    markdown              mediumtext                         not null comment '正文 Markdown',
+    contentHash           varchar(64)                        not null comment '正文 SHA-256',
+    source                varchar(32)                        not null comment 'AI_GENERATED / MANUAL_SAVE / ROLLBACK',
+    rollbackFromVersionNo int                                null comment '回滚来源版本号',
+    remark                varchar(512)                       null comment '备注',
+    wordCount             int                                null comment '字数',
+    createTime            datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime            datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete              tinyint  default 0                 not null comment '是否删除',
+    unique key uk_task_version (taskId, versionNo),
+    key idx_task_createTime (taskId, createTime),
+    key idx_articleId (articleId)
+) comment '文章正文版本表' collate = utf8mb4_unicode_ci;
+

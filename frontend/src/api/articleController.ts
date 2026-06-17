@@ -17,6 +17,49 @@ export async function getArticle(
 }
 
 /** AI 修改大纲 POST /article/ai-modify-outline */
+/** 获取文章正文版本列表 GET /article/versions/${param0} */
+export async function getArticleVersions(
+  params: API.articleVersionsParams,
+  options?: { [key: string]: any }
+) {
+  const { taskId: param0, ...queryParams } = params
+  return request<API.BaseResponseListArticleContentVersionVO>(`/article/versions/${param0}`, {
+    method: 'GET',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
+/** 更新文章正文并创建版本 POST /article/content/update */
+export async function updateArticleContent(
+  body: API.ArticleContentUpdateRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseArticleContentVersionVO>('/article/content/update', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 回滚文章正文版本 POST /article/content/rollback */
+export async function rollbackArticleContent(
+  body: API.ArticleContentRollbackRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseArticleContentVersionVO>('/article/content/rollback', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
 export async function aiModifyOutline(
   body: API.ArticleAiModifyOutlineRequest,
   options?: { [key: string]: any }

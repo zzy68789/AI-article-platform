@@ -67,6 +67,25 @@
               </template>
               发布到公众号
             </a-button>
+            <a-button
+              v-if="isWechatPublishable"
+              @click="openContentEditor"
+            >
+              <template #icon>
+                <EditOutlined />
+              </template>
+              编辑正文
+            </a-button>
+            <a-button
+              v-if="isWechatPublishable"
+              :loading="versionLoading"
+              @click="openVersionHistory"
+            >
+              <template #icon>
+                <HistoryOutlined />
+              </template>
+              版本历史
+            </a-button>
             <a-button type="primary" @click="exportMarkdown" class="export-btn">
               <template #icon>
                 <DownloadOutlined />
@@ -260,6 +279,93 @@
         </a-card>
       </a-spin>
     </div>
+
+    <a-drawer
+      v-model:open="contentEditorVisible"
+      title="编辑正文"
+      width="86%"
+      :destroy-on-close="false"
+      class="content-editor-drawer"
+    >
+      <div class="editor-toolbar">
+        <a-input
+          v-model:value="contentEditorRemark"
+          placeholder="本次修改备注，可选"
+          class="editor-remark"
+          allow-clear
+        />
+        <a-button :loading="contentSaving" type="primary" @click="saveContentVersion">
+          保存版本
+        </a-button>
+      </div>
+      <MdEditor
+        v-model="contentEditorValue"
+        editor-id="article-content-editor"
+        language="zh-CN"
+        :preview="true"
+        :toolbars-exclude="['github']"
+      />
+    </a-drawer>
+
+    <a-drawer
+      v-model:open="versionsVisible"
+      title="正文版本历史"
+      width="720"
+      class="version-history-drawer"
+    >
+      <a-spin :spinning="versionLoading">
+        <a-empty v-if="articleVersions.length === 0" description="暂无正文版本" />
+        <div v-else class="version-list">
+          <div
+            v-for="version in articleVersions"
+            :key="version.id || version.versionNo"
+            class="version-item"
+          >
+            <div class="version-main">
+              <div class="version-title">
+                <a-tag color="blue">V{{ version.versionNo }}</a-tag>
+                <a-tag :color="getVersionSourceColor(version.source)">
+                  {{ getVersionSourceText(version.source) }}
+                </a-tag>
+                <span v-if="version.rollbackFromVersionNo" class="rollback-from">
+                  来源 V{{ version.rollbackFromVersionNo }}
+                </span>
+              </div>
+              <div class="version-meta">
+                {{ version.createTime ? formatDate(version.createTime) : '' }}
+                <span v-if="version.wordCount"> · {{ version.wordCount }} 字</span>
+              </div>
+              <div v-if="version.remark" class="version-remark">{{ version.remark }}</div>
+            </div>
+            <div class="version-actions">
+              <a-button size="small" @click="previewVersion(version)">预览</a-button>
+              <a-button
+                size="small"
+                danger
+                :loading="rollbackLoading"
+                @click="confirmRollback(version)"
+              >
+                回滚
+              </a-button>
+            </div>
+          </div>
+        </div>
+      </a-spin>
+    </a-drawer>
+
+    <a-modal
+      v-model:open="versionPreviewVisible"
+      width="900px"
+      title="版本预览"
+      :footer="null"
+    >
+      <div v-if="previewingVersion" class="version-preview">
+        <div class="version-preview-meta">
+          V{{ previewingVersion.versionNo }} · {{ getVersionSourceText(previewingVersion.source) }}
+        </div>
+        <div v-html="markdownToHtml(previewingVersion.markdown || '')" class="markdown-content"></div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -282,17 +388,24 @@ import {
   CloudUploadOutlined,
   SendOutlined,
   SyncOutlined,
-  LinkOutlined
+  LinkOutlined,
+  EditOutlined,
+  HistoryOutlined
 } from '@ant-design/icons-vue'
 import {
   getArticle,
+  getArticleVersions,
   getExecutionLogs,
+  rollbackArticleContent,
   createWechatDraft,
   publishWechatArticle,
   getWechatPublishStatus,
   getWechatOfficialStatus,
-  listWechatAccounts
+  listWechatAccounts,
+  updateArticleContent
 } from '@/api/articleController'
+import { MdEditor } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 import { marked } from 'marked'
 import dayjs from 'dayjs'
 
@@ -309,6 +422,16 @@ const logsLoading = ref(false)
 const showExecutionLogs = ref(false)
 const wechatLoading = ref(false)
 const wechatStatusLoading = ref(false)
+const contentEditorVisible = ref(false)
+const contentEditorValue = ref('')
+const contentEditorRemark = ref('')
+const contentSaving = ref(false)
+const versionsVisible = ref(false)
+const versionLoading = ref(false)
+const rollbackLoading = ref(false)
+const articleVersions = ref<API.ArticleContentVersionVO[]>([])
+const versionPreviewVisible = ref(false)
+const previewingVersion = ref<API.ArticleContentVersionVO | null>(null)
 let refreshTimer: number | null = null
 
 const isWechatPublishable = computed(() => {
@@ -429,6 +552,101 @@ const loadWechatAccounts = async () => {
   }
 }
 
+const loadArticleVersions = async () => {
+  if (!article.value?.taskId) return
+  versionLoading.value = true
+  try {
+    const res = await getArticleVersions({ taskId: article.value.taskId })
+    if (res.data.code === 0) {
+      articleVersions.value = res.data.data || []
+    } else {
+      message.error(res.data.message || '加载版本历史失败')
+    }
+  } catch (error) {
+    message.error((error as Error).message || '加载版本历史失败')
+  } finally {
+    versionLoading.value = false
+  }
+}
+
+const openContentEditor = () => {
+  if (!article.value) return
+  contentEditorValue.value = article.value.fullContent || article.value.content || ''
+  contentEditorRemark.value = ''
+  contentEditorVisible.value = true
+}
+
+const openVersionHistory = async () => {
+  versionsVisible.value = true
+  await loadArticleVersions()
+}
+
+const saveContentVersion = async () => {
+  if (!article.value?.taskId) return
+  if (!contentEditorValue.value.trim()) {
+    message.error('正文不能为空')
+    return
+  }
+  contentSaving.value = true
+  try {
+    const res = await updateArticleContent({
+      taskId: article.value.taskId,
+      markdown: contentEditorValue.value,
+      remark: contentEditorRemark.value,
+    })
+    if (res.data.code === 0) {
+      message.success('正文版本已保存')
+      contentEditorVisible.value = false
+      wechatRecord.value = null
+      await loadArticle(true)
+      await loadArticleVersions()
+    } else {
+      message.error(res.data.message || '保存正文失败')
+    }
+  } catch (error) {
+    message.error((error as Error).message || '保存正文失败')
+  } finally {
+    contentSaving.value = false
+  }
+}
+
+const previewVersion = (version: API.ArticleContentVersionVO) => {
+  previewingVersion.value = version
+  versionPreviewVisible.value = true
+}
+
+const confirmRollback = (version: API.ArticleContentVersionVO) => {
+  if (!article.value?.taskId || !version.versionNo) return
+  Modal.confirm({
+    title: `确认回滚到 V${version.versionNo}`,
+    content: '回滚会创建一个新的版本，并覆盖当前可发布正文。',
+    okText: '确认回滚',
+    cancelText: '取消',
+    onOk: async () => {
+      rollbackLoading.value = true
+      try {
+        const res = await rollbackArticleContent({
+          taskId: article.value?.taskId,
+          versionNo: version.versionNo,
+          remark: `Rollback to V${version.versionNo}`,
+        })
+        if (res.data.code === 0) {
+          message.success('正文已回滚')
+          wechatRecord.value = null
+          await loadArticle(true)
+          await loadArticleVersions()
+        } else {
+          message.error(res.data.message || '回滚失败')
+        }
+      } catch (error) {
+        message.error((error as Error).message || '回滚失败')
+      } finally {
+        rollbackLoading.value = false
+      }
+    },
+  })
+}
+
 const handleWechatAccountChange = async () => {
   wechatRecord.value = null
   if (article.value?.taskId) {
@@ -519,6 +737,24 @@ const getWechatStatusText = (status?: string) => {
 }
 
 // 返回
+const getVersionSourceColor = (source?: string) => {
+  const colorMap: Record<string, string> = {
+    AI_GENERATED: 'purple',
+    MANUAL_SAVE: 'green',
+    ROLLBACK: 'orange',
+  }
+  return colorMap[source || ''] || 'default'
+}
+
+const getVersionSourceText = (source?: string) => {
+  const textMap: Record<string, string> = {
+    AI_GENERATED: 'AI Generated',
+    MANUAL_SAVE: 'Manual Save',
+    ROLLBACK: 'Rollback',
+  }
+  return textMap[source || ''] || source || 'Unknown'
+}
+
 const goBack = () => {
   router.back()
 }
@@ -1190,6 +1426,77 @@ onUnmounted(() => {
         }
       }
     }
+  }
+}
+
+:global(.content-editor-drawer) {
+  .editor-toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .editor-remark {
+    flex: 1;
+  }
+
+  .md-editor {
+    height: calc(100vh - 190px);
+  }
+}
+
+:global(.version-history-drawer) {
+  .version-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .version-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .version-main {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .version-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .rollback-from,
+  .version-meta,
+  .version-remark {
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+
+  .version-remark {
+    margin-top: 6px;
+  }
+
+  .version-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+:global(.version-preview) {
+  .version-preview-meta {
+    margin-bottom: 16px;
+    color: var(--color-text-muted);
+    font-size: 13px;
   }
 }
 

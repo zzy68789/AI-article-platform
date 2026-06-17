@@ -30,6 +30,10 @@ public class WechatPublishVO implements Serializable {
 
     private String articleUrl;
 
+    private String contentHash;
+
+    private Integer contentVersionNo;
+
     private String officialStatusCode;
 
     private String officialResponse;
