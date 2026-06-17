@@ -74,4 +74,11 @@ public enum ArticlePhaseEnum {
             case COMPLETED, FAILED -> false;
         };
     }
+
+    /**
+     * 标题确认已被接收，后续重复确认不应再次推进阶段。
+     */
+    public boolean isTitleConfirmationAccepted() {
+        return this == OUTLINE_GENERATING || this == OUTLINE_EDITING || this == CONTENT_GENERATING || this == COMPLETED;
+    }
 }

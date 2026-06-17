@@ -18,4 +18,11 @@ class ArticlePhaseEnumTest {
         assertFalse(ArticlePhaseEnum.COMPLETED.canTransitionTo(ArticlePhaseEnum.FAILED));
         assertFalse(ArticlePhaseEnum.FAILED.canTransitionTo(ArticlePhaseEnum.COMPLETED));
     }
+
+    @Test
+    void outlineGenerationMeansTitleConfirmationWasAlreadyAccepted() {
+        assertTrue(ArticlePhaseEnum.OUTLINE_GENERATING.isTitleConfirmationAccepted());
+        assertFalse(ArticlePhaseEnum.TITLE_SELECTING.isTitleConfirmationAccepted());
+        assertFalse(ArticlePhaseEnum.FAILED.isTitleConfirmationAccepted());
+    }
 }

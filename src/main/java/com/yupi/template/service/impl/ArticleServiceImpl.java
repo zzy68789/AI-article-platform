@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import com.yupi.template.model.enums.ImageMethodEnum;
@@ -242,8 +243,17 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
         // 校验当前阶段（必须是 TITLE_SELECTING）
         ArticlePhaseEnum currentPhase = ArticlePhaseEnum.getByValue(article.getPhase());
-        ThrowUtils.throwIf(currentPhase != ArticlePhaseEnum.TITLE_SELECTING,
-                ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作");
+        if (currentPhase != ArticlePhaseEnum.TITLE_SELECTING) {
+            if (currentPhase != null
+                    && currentPhase.isTitleConfirmationAccepted()
+                    && Objects.equals(article.getMainTitle(), mainTitle)
+                    && Objects.equals(article.getSubTitle(), subTitle)
+                    && Objects.equals(article.getUserDescription(), userDescription)) {
+                log.info("重复确认标题已忽略, taskId={}, phase={}", taskId, article.getPhase());
+                return;
+            }
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作");
+        }
 
         // 保存用户选择的标题和补充描述
         article.setMainTitle(mainTitle);

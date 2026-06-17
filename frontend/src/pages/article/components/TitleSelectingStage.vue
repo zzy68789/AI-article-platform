@@ -53,7 +53,7 @@
         type="primary" 
         size="large"
         :loading="loading"
-        :disabled="!canConfirm"
+        :disabled="loading || !canConfirm"
         @click="handleConfirm"
         class="confirm-btn"
       >
@@ -107,6 +107,10 @@ const canConfirm = computed(() => {
 })
 
 const handleConfirm = () => {
+  if (props.loading || !canConfirm.value) {
+    return
+  }
+
   let mainTitle = ''
   let subTitle = ''
   

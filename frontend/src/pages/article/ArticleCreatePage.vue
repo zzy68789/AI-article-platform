@@ -1037,7 +1037,10 @@ const handleConfirmTitle = async (data: {mainTitle: string, subTitle: string, us
     // 保存标题信息，用于大纲生成阶段展示
     article.value.mainTitle = data.mainTitle
     article.value.subTitle = data.subTitle
-    // 不直接切换阶段，等待 SSE 消息 OUTLINE_GENERATED
+    // 确认成功后后端已进入大纲生成阶段，前端立即同步状态，避免重复提交标题确认
+    currentPhase.value = 'OUTLINE_GENERATING'
+    currentStep.value = 2
+    isCreating.value = true
     message.success('标题已确认，正在生成大纲...')
   } catch (error) {
     const err = error as Error
