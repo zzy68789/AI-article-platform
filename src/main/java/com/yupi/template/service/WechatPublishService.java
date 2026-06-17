@@ -39,6 +39,9 @@ public class WechatPublishService extends ServiceImpl<WechatPublishRecordMapper,
     private ArticleService articleService;
 
     @Resource
+    private ArticleContentVersionService articleContentVersionService;
+
+    @Resource
     private WechatApiClient wechatApiClient;
 
     @Resource
@@ -56,13 +59,15 @@ public class WechatPublishService extends ServiceImpl<WechatPublishRecordMapper,
         Long requestedAccountId = request == null ? null : request.getWechatAccountId();
         return withTaskLock(lockKey(taskId, requestedAccountId), () -> {
             Article article = getPublishableArticle(taskId, loginUser);
+            String contentHash = currentContentHash(article);
             WechatCredential credential = wechatCredentialService.resolve(requestedAccountId, loginUser);
             boolean force = request != null && Boolean.TRUE.equals(request.getForce());
             if (!force) {
                 WechatPublishRecord existing = findLatestNonFailed(
                         taskId,
                         loginUser.getId(),
-                        credential.getWechatAccountId()
+                        credential.getWechatAccountId(),
+                        contentHash
                 );
                 if (existing != null) {
                     return WechatPublishVO.objToVo(existing);
@@ -76,12 +81,13 @@ public class WechatPublishService extends ServiceImpl<WechatPublishRecordMapper,
         Long requestedAccountId = request == null ? null : request.getWechatAccountId();
         return withTaskLock(lockKey(taskId, requestedAccountId), () -> {
             Article article = getPublishableArticle(taskId, loginUser);
+            String contentHash = currentContentHash(article);
             WechatCredential credential = wechatCredentialService.resolve(requestedAccountId, loginUser);
             boolean force = request != null && Boolean.TRUE.equals(request.getForce());
 
             WechatPublishRecord record = null;
             if (!force) {
-                record = findLatestNonFailed(taskId, loginUser.getId(), credential.getWechatAccountId());
+                record = findLatestNonFailed(taskId, loginUser.getId(), credential.getWechatAccountId(), contentHash);
                 if (record != null && isAlreadySubmitted(record)) {
                     return WechatPublishVO.objToVo(record);
                 }
@@ -163,7 +169,8 @@ public class WechatPublishService extends ServiceImpl<WechatPublishRecordMapper,
             WechatCredential credential) {
         WechatPublishRecord record = buildBaseRecord(article, loginUser, credential);
         try {
-            String markdown = StrUtil.blankToDefault(article.getFullContent(), article.getContent());
+            String markdown = resolveArticleMarkdown(article);
+            String contentHash = ArticleContentVersionService.hashMarkdown(markdown);
             String html = wechatMarkdownRenderService.renderForWechat(markdown, credential.getAccessToken());
             String coverUrl = resolveCoverUrl(article, request);
             String thumbMediaId = wechatApiClient.uploadCoverImage(credential.getAccessToken(), coverUrl);
@@ -179,6 +186,8 @@ public class WechatPublishService extends ServiceImpl<WechatPublishRecordMapper,
             );
 
             record.setArticleTitle(title);
+            record.setContentHash(contentHash);
+            record.setContentVersionNo(articleContentVersionService.getLatestVersionNo(article.getTaskId()));
             record.setMediaId(mediaId);
             record.setMode(WechatPublishModeEnum.DRAFT.getValue());
             record.setStatus(WechatPublishStatusEnum.DRAFT_CREATED.getValue());
@@ -276,7 +285,11 @@ public class WechatPublishService extends ServiceImpl<WechatPublishRecordMapper,
         return this.list(queryWrapper).size() + 1;
     }
 
-    private WechatPublishRecord findLatestNonFailed(String taskId, Long userId, Long wechatAccountId) {
+    private WechatPublishRecord findLatestNonFailed(
+            String taskId,
+            Long userId,
+            Long wechatAccountId,
+            String contentHash) {
         QueryWrapper queryWrapper = QueryWrapper.create()
                 .eq("taskId", taskId)
                 .eq("userId", userId)
@@ -284,6 +297,11 @@ public class WechatPublishService extends ServiceImpl<WechatPublishRecordMapper,
                 .ne("status", WechatPublishStatusEnum.FAILED.getValue())
                 .orderBy("createTime", false);
         addAccountFilter(queryWrapper, wechatAccountId);
+        if (StrUtil.isBlank(contentHash)) {
+            queryWrapper.isNull("contentHash");
+        } else {
+            queryWrapper.eq("contentHash", contentHash);
+        }
         List<WechatPublishRecord> records = this.list(queryWrapper);
         return records == null || records.isEmpty() ? null : records.get(0);
     }
@@ -323,6 +341,14 @@ public class WechatPublishService extends ServiceImpl<WechatPublishRecordMapper,
             return text;
         }
         return text.substring(0, 120);
+    }
+
+    private String currentContentHash(Article article) {
+        return ArticleContentVersionService.hashMarkdown(resolveArticleMarkdown(article));
+    }
+
+    private String resolveArticleMarkdown(Article article) {
+        return StrUtil.blankToDefault(article.getFullContent(), article.getContent());
     }
 
     private void addAccountFilter(QueryWrapper queryWrapper, Long wechatAccountId) {

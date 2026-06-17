@@ -48,6 +48,36 @@ declare namespace API {
     enabledImageMethods?: string[]
   }
 
+  type ArticleContentRollbackRequest = {
+    taskId?: string
+    versionNo?: number
+    remark?: string
+  }
+
+  type ArticleContentUpdateRequest = {
+    taskId?: string
+    markdown?: string
+    remark?: string
+  }
+
+  type ArticleContentVersionVO = {
+    id?: number
+    articleId?: number
+    taskId?: string
+    userId?: number
+    versionNo?: number
+    title?: string
+    subTitle?: string
+    markdown?: string
+    contentHash?: string
+    source?: string
+    rollbackFromVersionNo?: number
+    remark?: string
+    wordCount?: number
+    createTime?: string
+    updateTime?: string
+  }
+
   type ArticleQueryRequest = {
     pageNum?: number
     pageSize?: number
@@ -99,6 +129,18 @@ declare namespace API {
   type BaseResponseListOutlineSection = {
     code?: number
     data?: OutlineSection[]
+    message?: string
+  }
+
+  type BaseResponseArticleContentVersionVO = {
+    code?: number
+    data?: ArticleContentVersionVO
+    message?: string
+  }
+
+  type BaseResponseListArticleContentVersionVO = {
+    code?: number
+    data?: ArticleContentVersionVO[]
     message?: string
   }
 
@@ -185,6 +227,10 @@ declare namespace API {
   }
 
   type getArticleParams = {
+    taskId: string
+  }
+
+  type articleVersionsParams = {
     taskId: string
   }
 
@@ -393,6 +439,8 @@ declare namespace API {
     publishId?: string
     articleIdFromWechat?: string
     articleUrl?: string
+    contentHash?: string
+    contentVersionNo?: number
     officialStatusCode?: string
     officialResponse?: string
     errorMessage?: string
