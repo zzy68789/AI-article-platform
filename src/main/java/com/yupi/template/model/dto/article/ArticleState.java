@@ -154,6 +154,16 @@ public class ArticleState implements Serializable {
     }
 
     /**
+     * 单张配图完成进度事件
+     */
+    @Data
+    public static class ImageProgressEvent implements Serializable {
+        private ImageResult image;
+        private Integer current;
+        private Integer total;
+    }
+
+    /**
      * 智能体4返回结果（包含带占位符的正文和配图需求列表）
      */
     @Data

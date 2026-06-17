@@ -318,6 +318,15 @@ public class ArticleAsyncService {
     private Map<String, Object> buildImageCompleteData(String imageJson) {
         Map<String, Object> data = new HashMap<>();
         data.put("type", SseMessageTypeEnum.IMAGE_COMPLETE.getValue());
+
+        ArticleState.ImageProgressEvent progressEvent = GsonUtils.fromJson(imageJson, ArticleState.ImageProgressEvent.class);
+        if (progressEvent != null && progressEvent.getImage() != null) {
+            data.put("image", progressEvent.getImage());
+            data.put("current", progressEvent.getCurrent());
+            data.put("total", progressEvent.getTotal());
+            return data;
+        }
+
         data.put("image", GsonUtils.fromJson(imageJson, ArticleState.ImageResult.class));
         return data;
     }

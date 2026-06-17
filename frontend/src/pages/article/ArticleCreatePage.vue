@@ -744,7 +744,13 @@ const getImageCompleteKey = (image: any) => {
   ].join('|')
 }
 
-const handleImageComplete = (image: any) => {
+const getImageProgressTitle = (image: any) => {
+  if (!image) return ''
+  return image.sectionTitle || image.description || image.keywords || ''
+}
+
+const handleImageComplete = (msg: SSEMessage) => {
+  const image = msg.image
   const key = getImageCompleteKey(image)
   if (key && completedImageKeys.has(key)) {
     return
@@ -752,13 +758,19 @@ const handleImageComplete = (image: any) => {
 
   if (key) {
     completedImageKeys.add(key)
+  }
+
+  if (typeof msg.current === 'number' && msg.current > 0) {
+    imageCount.value = Math.max(imageCount.value, msg.current)
+  } else if (key) {
     imageCount.value = completedImageKeys.size
   } else {
     imageCount.value += 1
   }
 
-  updateTotalImages()
-  addLog(`配图生成中 ${imageCount.value}/${totalImages.value}`, 'info')
+  updateTotalImages(typeof msg.total === 'number' ? msg.total : undefined)
+  const progressTitle = getImageProgressTitle(image)
+  addLog(`配图生成中 ${imageCount.value}/${totalImages.value}${progressTitle ? `：${progressTitle}` : ''}`, 'info')
 }
 
 const stopStatusPolling = () => {
@@ -991,7 +1003,7 @@ const handleSSEMessage = (msg: SSEMessage) => {
 
     case 'IMAGE_COMPLETE':
       // 单张配图完成
-      handleImageComplete(msg.image)
+      handleImageComplete(msg)
       break
 
     case 'AGENT5_COMPLETE':

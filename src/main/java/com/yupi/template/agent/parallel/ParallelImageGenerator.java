@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -79,7 +80,7 @@ public class ParallelImageGenerator implements NodeAction {
                         )));
         
         // 并行执行不同类型的图片生成
-        List<ArticleState.ImageResult> allImages = executeParallel(groupedBySource, streamHandler);
+        List<ArticleState.ImageResult> allImages = executeParallel(groupedBySource, streamHandler, imageRequirements.size());
         
         // 按 position 排序
         allImages.sort((a, b) -> {
@@ -99,10 +100,12 @@ public class ParallelImageGenerator implements NodeAction {
      */
     private List<ArticleState.ImageResult> executeParallel(
             Map<String, List<ArticleState.ImageRequirement>> groupedBySource,
-            Consumer<String> streamHandler) {
+            Consumer<String> streamHandler,
+            int total) {
         
         // 使用线程安全的列表收集结果
         CopyOnWriteArrayList<ArticleState.ImageResult> allImages = new CopyOnWriteArrayList<>();
+        AtomicInteger completedCount = new AtomicInteger(0);
         
         // 为每种 imageSource 创建异步任务
         List<CompletableFuture<Void>> futures = groupedBySource.entrySet().stream()
@@ -132,8 +135,12 @@ public class ParallelImageGenerator implements NodeAction {
                                 
                                 // 推送单张配图完成消息
                                 if (streamHandler != null) {
+                                    ArticleState.ImageProgressEvent progressEvent = new ArticleState.ImageProgressEvent();
+                                    progressEvent.setImage(imageResult);
+                                    progressEvent.setCurrent(completedCount.incrementAndGet());
+                                    progressEvent.setTotal(total);
                                     String message = SseMessageTypeEnum.IMAGE_COMPLETE.getStreamingPrefix() 
-                                            + GsonUtils.toJson(imageResult);
+                                            + GsonUtils.toJson(progressEvent);
                                     streamHandler.accept(message);
                                 }
                                 

@@ -221,6 +221,7 @@ public class ArticleAgentService {
     @AgentExecution(value = "agent5_generate_images", description = "生成配图")
     public void agent5GenerateImages(ArticleState state, Consumer<String> streamHandler) {
         List<ArticleState.ImageResult> imageResults = new ArrayList<>();
+        int total = state.getImageRequirements().size();
         
         for (ArticleState.ImageRequirement requirement : state.getImageRequirements()) {
             String imageSource = requirement.getImageSource();
@@ -246,7 +247,11 @@ public class ArticleAgentService {
             imageResults.add(imageResult);
             
             // 推送单张配图完成
-            String imageCompleteMessage = SseMessageTypeEnum.IMAGE_COMPLETE.getStreamingPrefix() + GsonUtils.toJson(imageResult);
+            ArticleState.ImageProgressEvent progressEvent = new ArticleState.ImageProgressEvent();
+            progressEvent.setImage(imageResult);
+            progressEvent.setCurrent(imageResults.size());
+            progressEvent.setTotal(total);
+            String imageCompleteMessage = SseMessageTypeEnum.IMAGE_COMPLETE.getStreamingPrefix() + GsonUtils.toJson(progressEvent);
             streamHandler.accept(imageCompleteMessage);
             
             log.info("智能体5：配图获取并上传成功, position={}, method={}, cosUrl={}", 
