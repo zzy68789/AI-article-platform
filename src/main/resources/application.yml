@@ -91,6 +91,19 @@ article:
       enabled: true
     # Agent 最大迭代次数
     max-iterations: 10
+  generation:
+    # 页面关闭后的恢复窗口。刷新页面在该时间内恢复连接则不判失败。
+    client-leave-grace-seconds: 30
+    # 高频检查已超过恢复窗口的页面离开记录。
+    client-leave-check-fixed-delay-ms: 1000
+    # 生成任务长时间无更新时的兜底失败阈值。
+    stale-timeout-minutes: 30
+    # 应用启动时是否立即清理历史悬挂任务。
+    cleanup-on-startup: true
+    # 首次定时清理延迟。启动清理由 cleanup-on-startup 控制。
+    cleanup-initial-delay-ms: 300000
+    # 生成任务清理定时器间隔。
+    cleanup-fixed-delay-ms: 300000
 
 # 微信公众号发布配置
 wechat:

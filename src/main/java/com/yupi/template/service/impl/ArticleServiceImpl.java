@@ -22,12 +22,16 @@ import com.yupi.template.utils.GsonUtils;
 import com.google.gson.reflect.TypeToken;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import com.yupi.template.model.enums.ImageMethodEnum;
@@ -44,11 +48,19 @@ import static com.yupi.template.constant.UserConstant.VIP_ROLE;
 @Slf4j
 public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> implements ArticleService {
 
+    private static final String CLIENT_LEFT_ERROR_MESSAGE = "页面已关闭，生成已终止";
+    private static final String STALE_PROCESSING_ERROR_TEMPLATE = "生成任务超过%d分钟未更新，已自动标记失败";
+
     @Resource
     private QuotaService quotaService;
 
     @Resource
     private ArticleAgentService articleAgentService;
+
+    @Value("${article.generation.client-leave-grace-seconds:30}")
+    private int clientLeaveGraceSeconds;
+
+    private final Map<String, ClientLeaveRecord> clientLeaveRecords = new ConcurrentHashMap<>();
 
     @Override
     public String createArticleTask(String topic, String style, List<String> enabledImageMethods, User loginUser) {
@@ -156,6 +168,12 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             return;
         }
 
+        if (!isActiveStatus(article.getStatus())) {
+            log.warn("忽略非活跃任务的状态写入, taskId={}, currentStatus={}, targetStatus={}",
+                    taskId, article.getStatus(), status.getValue());
+            return;
+        }
+
         article.setStatus(status.getValue());
         article.setErrorMessage(errorMessage);
         if (status == ArticleStatusEnum.COMPLETED) {
@@ -163,9 +181,93 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         } else if (status == ArticleStatusEnum.FAILED) {
             article.setPhase(ArticlePhaseEnum.FAILED.getValue());
         }
-        this.updateById(article);
+        if (updateActiveArticle(article)) {
+            log.info("文章状态已更新, taskId={}, status={}", taskId, status.getValue());
+        } else {
+            log.warn("文章状态更新时任务已非活跃, taskId={}, targetStatus={}", taskId, status.getValue());
+        }
+    }
 
-        log.info("文章状态已更新, taskId={}, status={}", taskId, status.getValue());
+    @Override
+    public void markGenerationClientLeft(String taskId, String clientSessionId, User loginUser) {
+        Article article = getByTaskId(taskId);
+        ThrowUtils.throwIf(article == null, ErrorCode.NOT_FOUND_ERROR, "文章不存在");
+        checkArticlePermission(article, loginUser);
+
+        if (!isActiveStatus(article.getStatus())) {
+            log.info("忽略非活跃任务的页面离开标记, taskId={}, status={}", taskId, article.getStatus());
+            return;
+        }
+
+        ClientLeaveRecord leaveRecord = new ClientLeaveRecord(
+                taskId,
+                clientSessionId,
+                now().plusSeconds(clientLeaveGraceSeconds)
+        );
+        clientLeaveRecords.put(taskId, leaveRecord);
+        log.info("文章生成页面离开待确认, taskId={}, clientSessionId={}, expireAt={}",
+                taskId, clientSessionId, leaveRecord.expireAt());
+    }
+
+    @Override
+    public void resumeGenerationClient(String taskId, String clientSessionId, User loginUser) {
+        Article article = getByTaskId(taskId);
+        ThrowUtils.throwIf(article == null, ErrorCode.NOT_FOUND_ERROR, "文章不存在");
+        checkArticlePermission(article, loginUser);
+
+        clientLeaveRecords.computeIfPresent(taskId, (key, record) -> {
+            if (Objects.equals(record.clientSessionId(), clientSessionId)) {
+                log.info("文章生成页面恢复，清除离开待确认, taskId={}, clientSessionId={}", taskId, clientSessionId);
+                return null;
+            }
+            return record;
+        });
+    }
+
+    @Override
+    public int markExpiredClientLeftTasksFailed() {
+        LocalDateTime currentTime = now();
+        List<ClientLeaveRecord> expiredRecords = new ArrayList<>();
+        clientLeaveRecords.forEach((taskId, record) -> {
+            if (!record.expireAt().isAfter(currentTime)) {
+                expiredRecords.add(record);
+            }
+        });
+
+        int failedCount = 0;
+        for (ClientLeaveRecord record : expiredRecords) {
+            Article article = getByTaskId(record.taskId());
+            boolean claimedExpiredRecord = clientLeaveRecords.remove(record.taskId(), record);
+            if (claimedExpiredRecord && article != null && isActiveStatus(article.getStatus())) {
+                updateArticleStatus(record.taskId(), ArticleStatusEnum.FAILED, CLIENT_LEFT_ERROR_MESSAGE);
+                failedCount++;
+            }
+        }
+        return failedCount;
+    }
+
+    @Override
+    public int markStaleProcessingArticlesFailed(int timeoutMinutes) {
+        LocalDateTime cutoffTime = now().minusMinutes(timeoutMinutes);
+        List<Article> staleArticles = findStaleActiveArticles(cutoffTime);
+        int failedCount = 0;
+        for (Article article : staleArticles) {
+            if (article != null && isActiveStatus(article.getStatus())) {
+                updateArticleStatus(
+                        article.getTaskId(),
+                        ArticleStatusEnum.FAILED,
+                        String.format(STALE_PROCESSING_ERROR_TEMPLATE, timeoutMinutes)
+                );
+                failedCount++;
+            }
+        }
+        return failedCount;
+    }
+
+    @Override
+    public boolean isArticleActive(String taskId) {
+        Article article = getByTaskId(taskId);
+        return article != null && isActiveStatus(article.getStatus());
     }
 
     @Override
@@ -174,6 +276,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
         if (article == null) {
             log.error("文章记录不存在, taskId={}", taskId);
+            return;
+        }
+
+        if (!isActiveStatus(article.getStatus())) {
+            log.warn("忽略非活跃任务的文章内容保存, taskId={}, status={}", taskId, article.getStatus());
             return;
         }
 
@@ -196,8 +303,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         article.setImages(GsonUtils.toJson(state.getImages()));
         article.setCompletedTime(LocalDateTime.now());
 
-        this.updateById(article);
-        log.info("文章保存成功, taskId={}", taskId);
+        if (updateActiveArticle(article)) {
+            log.info("文章保存成功, taskId={}", taskId);
+        } else {
+            log.warn("文章保存时任务已非活跃, taskId={}", taskId);
+        }
     }
 
     /**
@@ -294,9 +404,18 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             return;
         }
 
+        if (!isActiveStatus(article.getStatus()) && phase != ArticlePhaseEnum.FAILED) {
+            log.warn("忽略非活跃任务的阶段更新, taskId={}, status={}, targetPhase={}",
+                    taskId, article.getStatus(), phase.getValue());
+            return;
+        }
+
         article.setPhase(phase.getValue());
-        this.updateById(article);
-        log.info("文章阶段已更新, taskId={}, phase={}", taskId, phase.getValue());
+        if (updateActiveArticle(article)) {
+            log.info("文章阶段已更新, taskId={}, phase={}", taskId, phase.getValue());
+        } else {
+            log.warn("文章阶段更新时任务已非活跃, taskId={}, targetPhase={}", taskId, phase.getValue());
+        }
     }
 
     @Override
@@ -307,9 +426,17 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             return;
         }
 
+        if (!isActiveStatus(article.getStatus())) {
+            log.warn("忽略非活跃任务的标题方案保存, taskId={}, status={}", taskId, article.getStatus());
+            return;
+        }
+
         article.setTitleOptions(GsonUtils.toJson(titleOptions));
-        this.updateById(article);
-        log.info("标题方案已保存, taskId={}, optionsCount={}", taskId, titleOptions.size());
+        if (updateActiveArticle(article)) {
+            log.info("标题方案已保存, taskId={}, optionsCount={}", taskId, titleOptions.size());
+        } else {
+            log.warn("标题方案保存时任务已非活跃, taskId={}", taskId);
+        }
     }
 
     @Override
@@ -405,5 +532,38 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     private boolean isVipOrAdmin(User user) {
         return ADMIN_ROLE.equals(user.getUserRole()) || 
                VIP_ROLE.equals(user.getUserRole());
+    }
+
+    protected LocalDateTime now() {
+        return LocalDateTime.now();
+    }
+
+    protected List<Article> findStaleActiveArticles(LocalDateTime cutoffTime) {
+        return this.list(QueryWrapper.create()
+                .eq("isDelete", 0)
+                .in("status", List.of(
+                        ArticleStatusEnum.PENDING.getValue(),
+                        ArticleStatusEnum.PROCESSING.getValue()
+                ))
+                .lt("updateTime", cutoffTime));
+    }
+
+    protected boolean updateActiveArticle(Article article) {
+        QueryWrapper activeTaskQuery = QueryWrapper.create()
+                .eq("taskId", article.getTaskId())
+                .eq("isDelete", 0)
+                .in("status", List.of(
+                        ArticleStatusEnum.PENDING.getValue(),
+                        ArticleStatusEnum.PROCESSING.getValue()
+                ));
+        return this.getMapper().updateByQuery(article, activeTaskQuery) > 0;
+    }
+
+    private boolean isActiveStatus(String status) {
+        return ArticleStatusEnum.PENDING.getValue().equals(status)
+                || ArticleStatusEnum.PROCESSING.getValue().equals(status);
+    }
+
+    private record ClientLeaveRecord(String taskId, String clientSessionId, LocalDateTime expireAt) {
     }
 }

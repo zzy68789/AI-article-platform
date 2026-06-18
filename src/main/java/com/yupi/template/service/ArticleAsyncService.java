@@ -82,6 +82,10 @@ public class ArticleAsyncService {
                 });
             }
             
+            if (!ensureTaskActive(taskId, "阶段1保存标题方案")) {
+                return;
+            }
+
             // 保存标题方案到数据库
             articleService.saveTitleOptions(taskId, state.getTitleOptions());
             
@@ -148,6 +152,10 @@ public class ArticleAsyncService {
                 });
             }
             
+            if (!ensureTaskActive(taskId, "阶段2保存大纲")) {
+                return;
+            }
+
             // 保存大纲到数据库
             Article articleToUpdate = articleService.getByTaskId(taskId);
             articleToUpdate.setOutline(GsonUtils.toJson(state.getOutline().getSections()));
@@ -235,9 +243,17 @@ public class ArticleAsyncService {
                 });
             }
             
+            if (!ensureTaskActive(taskId, "阶段3保存正文和配图")) {
+                return;
+            }
+
             // 保存完整文章到数据库
             articleService.saveArticleContent(taskId, state);
             
+            if (!ensureTaskActive(taskId, "阶段3完成状态写入")) {
+                return;
+            }
+
             // 更新状态为已完成
             articleService.updateArticleStatus(taskId, ArticleStatusEnum.COMPLETED, null);
             
@@ -370,5 +386,14 @@ public class ArticleAsyncService {
         data.put("type", type.getValue());
         data.putAll(additionalData);
         sseEmitterManager.send(taskId, GsonUtils.toJson(data));
+    }
+
+    private boolean ensureTaskActive(String taskId, String action) {
+        if (articleService.isArticleActive(taskId)) {
+            return true;
+        }
+        log.warn("文章任务已非活跃，跳过{}, taskId={}", action, taskId);
+        sseEmitterManager.complete(taskId);
+        return false;
     }
 }

@@ -13,6 +13,7 @@ import com.yupi.template.model.dto.article.ArticleContentUpdateRequest;
 import com.yupi.template.model.dto.article.ArticleConfirmOutlineRequest;
 import com.yupi.template.model.dto.article.ArticleConfirmTitleRequest;
 import com.yupi.template.model.dto.article.ArticleCreateRequest;
+import com.yupi.template.model.dto.article.ArticleGenerationLeaveRequest;
 import com.yupi.template.model.dto.article.ArticleQueryRequest;
 import com.yupi.template.model.dto.article.ArticleState;
 
@@ -130,6 +131,32 @@ public class ArticleController {
         return ResultUtils.success(articleVO);
     }
 
+    /**
+     * 标记文章生成页面离开，等待恢复窗口后再判定失败
+     */
+    @PostMapping("/generation-leave")
+    @Operation(summary = "标记文章生成页面离开")
+    public BaseResponse<Void> markGenerationClientLeft(@RequestBody ArticleGenerationLeaveRequest request,
+                                                       HttpServletRequest httpServletRequest) {
+        validateGenerationLifecycleRequest(request);
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        articleService.markGenerationClientLeft(request.getTaskId(), request.getClientSessionId(), loginUser);
+        return ResultUtils.success(null);
+    }
+
+    /**
+     * 标记文章生成页面恢复，取消离开待确认
+     */
+    @PostMapping("/generation-resume")
+    @Operation(summary = "标记文章生成页面恢复")
+    public BaseResponse<Void> resumeGenerationClient(@RequestBody ArticleGenerationLeaveRequest request,
+                                                     HttpServletRequest httpServletRequest) {
+        validateGenerationLifecycleRequest(request);
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        articleService.resumeGenerationClient(request.getTaskId(), request.getClientSessionId(), loginUser);
+        return ResultUtils.success(null);
+    }
+
     @GetMapping("/versions/{taskId}")
     @Operation(summary = "获取文章正文版本列表")
     public BaseResponse<List<ArticleContentVersionVO>> listContentVersions(
@@ -191,6 +218,14 @@ public class ArticleController {
         boolean result = articleService.deleteArticle(deleteRequest.getId(), loginUser);
         
         return ResultUtils.success(result);
+    }
+
+    private void validateGenerationLifecycleRequest(ArticleGenerationLeaveRequest request) {
+        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(request.getTaskId() == null || request.getTaskId().trim().isEmpty(),
+                ErrorCode.PARAMS_ERROR, "任务ID不能为空");
+        ThrowUtils.throwIf(request.getClientSessionId() == null || request.getClientSessionId().trim().isEmpty(),
+                ErrorCode.PARAMS_ERROR, "客户端会话ID不能为空");
     }
 
     /**

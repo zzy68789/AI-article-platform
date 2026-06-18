@@ -1,0 +1,9 @@
+spring:
+  profiles:
+    active: local
+
+article:
+  generation:
+    cleanup-on-startup: false
+    client-leave-check-fixed-delay-ms: 3600000
+    cleanup-initial-delay-ms: 3600000

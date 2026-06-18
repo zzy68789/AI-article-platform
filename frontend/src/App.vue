@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import { provide } from 'vue'
+import { onMounted, provide } from 'vue'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
+import {
+  registerGenerationLeaveListener,
+  resumeStoredGenerationSession,
+} from '@/utils/articleGenerationLifecycle'
 
 // 提供全局中文语言配置
 provide('locale', zhCN)
+
+onMounted(() => {
+  registerGenerationLeaveListener()
+  resumeStoredGenerationSession()
+})
 </script>
 
 <template>

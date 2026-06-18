@@ -87,6 +87,47 @@ public interface ArticleService extends IService<Article> {
     void updateArticleStatus(String taskId, ArticleStatusEnum status, String errorMessage);
 
     /**
+     * 标记生成页面客户端已离开，等待短暂恢复窗口后再判定失败。
+     *
+     * @param taskId          任务ID
+     * @param clientSessionId 客户端会话ID
+     * @param loginUser       当前登录用户
+     */
+    void markGenerationClientLeft(String taskId, String clientSessionId, User loginUser);
+
+    /**
+     * 标记生成页面客户端已恢复，清除待失败状态。
+     *
+     * @param taskId          任务ID
+     * @param clientSessionId 客户端会话ID
+     * @param loginUser       当前登录用户
+     */
+    void resumeGenerationClient(String taskId, String clientSessionId, User loginUser);
+
+    /**
+     * 将超过恢复窗口的客户端离开任务标记为失败。
+     *
+     * @return 标记失败的任务数
+     */
+    int markExpiredClientLeftTasksFailed();
+
+    /**
+     * 将长期未更新的生成中任务标记为失败。
+     *
+     * @param timeoutMinutes 超时时间（分钟）
+     * @return 标记失败的任务数
+     */
+    int markStaleProcessingArticlesFailed(int timeoutMinutes);
+
+    /**
+     * 判断文章任务是否仍可继续写入异步生成结果。
+     *
+     * @param taskId 任务ID
+     * @return 是否仍是活跃任务
+     */
+    boolean isArticleActive(String taskId);
+
+    /**
      * 保存文章内容
      *
      * @param taskId 任务ID

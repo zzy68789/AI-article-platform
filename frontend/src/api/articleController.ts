@@ -119,6 +119,41 @@ export async function createArticle(
   })
 }
 
+export interface ArticleGenerationLeaveRequest {
+  taskId: string
+  clientSessionId: string
+}
+
+/** 标记文章生成页面离开 POST /article/generation-leave */
+export async function markGenerationClientLeft(
+  body: ArticleGenerationLeaveRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseVoid>('/article/generation-leave', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 标记文章生成页面恢复 POST /article/generation-resume */
+export async function resumeGenerationClient(
+  body: ArticleGenerationLeaveRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseVoid>('/article/generation-resume', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
 /** 删除文章 POST /article/delete */
 export async function deleteArticle(body: API.DeleteRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseBoolean>('/article/delete', {

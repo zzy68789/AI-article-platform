@@ -559,8 +559,19 @@ import {
   CrownOutlined,
   FileTextOutlined
 } from '@ant-design/icons-vue'
-import { createArticle, confirmTitle, confirmOutline, getArticle } from '@/api/articleController'
+import {
+  createArticle,
+  confirmTitle,
+  confirmOutline,
+  getArticle,
+  resumeGenerationClient,
+} from '@/api/articleController'
 import { connectSSE, closeSSE, type SSEMessage } from '@/utils/sse'
+import {
+  clearGenerationSession,
+  loadGenerationSession,
+  saveGenerationSession,
+} from '@/utils/articleGenerationLifecycle'
 import { isAdmin as checkIsAdmin, isVip as checkIsVip, hasQuota as checkHasQuota } from '@/utils/permission'
 import { marked } from 'marked'
 import TitleSelectingStage from './components/TitleSelectingStage.vue'
@@ -701,6 +712,106 @@ let statusPollTimer: number | null = null
 let completionNotified = false
 const completedImageKeys = new Set<string>()
 
+const isActiveGenerationStatus = (status?: string) => status === 'PENDING' || status === 'PROCESSING'
+
+const getStepByPhase = (phase?: string) => {
+  const stepMap: Record<string, number> = {
+    PENDING: 0,
+    TITLE_GENERATING: 0,
+    TITLE_SELECTING: 1,
+    OUTLINE_GENERATING: 2,
+    OUTLINE_EDITING: 2,
+    CONTENT_GENERATING: 2,
+  }
+  return stepMap[phase || ''] ?? 0
+}
+
+const applyArticleSnapshot = (latestArticle: API.ArticleVO) => {
+  article.value = {
+    ...article.value,
+    ...latestArticle,
+    content: latestArticle.content || article.value.content || '',
+    fullContent: latestArticle.fullContent || article.value.fullContent || '',
+    images: latestArticle.images || article.value.images || [],
+  }
+  topic.value = latestArticle.topic || topic.value
+  if (latestArticle.titleOptions?.length) {
+    titleOptions.value = latestArticle.titleOptions
+      .filter((item) => item.mainTitle && item.subTitle)
+      .map((item) => ({
+        mainTitle: item.mainTitle as string,
+        subTitle: item.subTitle as string,
+      }))
+  }
+  if (latestArticle.outline?.length) {
+    outline.value = latestArticle.outline
+      .filter((item) => item.section !== undefined && item.title && item.points)
+      .map((item) => ({
+        section: item.section as number,
+        title: item.title as string,
+        points: item.points as string[],
+      }))
+  }
+  currentPhase.value = latestArticle.phase || currentPhase.value
+  currentStep.value = getStepByPhase(latestArticle.phase)
+}
+
+const connectGenerationProgress = () => {
+  closeSSE(eventSource)
+  eventSource = connectSSE(taskId.value, {
+    onMessage: handleSSEMessage,
+    onError: handleSSEError,
+    onComplete: handleSSEComplete,
+  })
+  startStatusPolling()
+}
+
+const restoreActiveGenerationSession = async () => {
+  const session = loadGenerationSession()
+  if (!session) {
+    return
+  }
+
+  try {
+    const res = await getArticle({ taskId: session.taskId })
+    const latestArticle = res.data.data
+    if (!latestArticle) {
+      clearGenerationSession(session.taskId)
+      return
+    }
+
+    if (latestArticle.status === 'COMPLETED') {
+      taskId.value = session.taskId
+      clearGenerationSession(session.taskId)
+      finalizeCreation(latestArticle)
+      return
+    }
+
+    if (latestArticle.status === 'FAILED') {
+      taskId.value = session.taskId
+      clearGenerationSession(session.taskId)
+      failCreation(latestArticle.errorMessage || '创作失败')
+      return
+    }
+
+    if (!isActiveGenerationStatus(latestArticle.status)) {
+      clearGenerationSession(session.taskId)
+      return
+    }
+
+    await resumeGenerationClient(session)
+    taskId.value = session.taskId
+    isCreating.value = true
+    isCompleted.value = false
+    completionNotified = false
+    applyArticleSnapshot(latestArticle)
+    addLog('已恢复未完成的文章生成任务', 'info')
+    connectGenerationProgress()
+  } catch (error) {
+    console.warn('恢复文章生成任务失败:', error)
+  }
+}
+
 // Markdown 转 HTML
 const markdownToHtml = (markdown: string | undefined) => {
   return marked(markdown || '')
@@ -813,6 +924,7 @@ const finalizeCreation = (latestArticle?: API.ArticleVO) => {
   stopStatusPolling()
   closeSSE(eventSource)
   eventSource = null
+  clearGenerationSession(taskId.value)
 
   if (!completionNotified) {
     completionNotified = true
@@ -829,6 +941,7 @@ const failCreation = (messageText: string) => {
   isOutlineStreaming.value = false
   confirmLoading.value = false
   stopStatusPolling()
+  clearGenerationSession(taskId.value)
   addLog(`创作失败: ${errorMessage.value}`, 'error')
 }
 
@@ -889,6 +1002,7 @@ const startCreate = async () => {
       throw new Error('创建任务失败：未返回任务ID')
     }
     taskId.value = newTaskId
+    saveGenerationSession(newTaskId)
     completionNotified = false
     completedImageKeys.clear()
     imageCount.value = 0
@@ -901,12 +1015,7 @@ const startCreate = async () => {
 
     // 建立 SSE 连接
     addLog('已建立实时连接，开始生成...', 'info')
-    eventSource = connectSSE(taskId.value, {
-      onMessage: handleSSEMessage,
-      onError: handleSSEError,
-      onComplete: handleSSEComplete,
-    })
-    startStatusPolling()
+    connectGenerationProgress()
   } catch (error) {
     const err = error as Error
     message.error(err.message || '创建任务失败')
@@ -1130,6 +1239,7 @@ const resetCreate = () => {
   imageCount.value = 0
   totalImages.value = 0
   imageProgress.value = 0
+  clearGenerationSession(taskId.value)
   completedImageKeys.clear()
   completionNotified = false
   stopStatusPolling()
@@ -1152,6 +1262,7 @@ onMounted(() => {
   if (route.query.topic) {
     topic.value = route.query.topic as string
   }
+  restoreActiveGenerationSession()
 })
 
 // 组件卸载前关闭 SSE
